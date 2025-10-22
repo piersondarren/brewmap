@@ -1,7 +1,6 @@
 // Brewery Map — U.S. & Canada
 // Vanilla JS + Leaflet + Papa Parse + MarkerCluster
-// Accepts either 15-col schema (…website_url,source,source_state,source_state_code)
-// or 14-col schema without `source` (…website_url,source_state,source_state_code)
+// Works with 14- or 15-col schema (source optional)
 
 (function () {
   const DATA_URL = "./data/na_breweries_combined.csv";
@@ -22,23 +21,10 @@
       '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors',
   }).addTo(map);
 
-  const cluster = L.markerClusterGroup({
-    chunkedLoading: true,
-    spiderfyOnMaxZoom: true,
-    disableClusteringAtZoom: 12,
-    maxClusterRadius: 60,
-  }).addTo(map);
-
   // ----- utils -----
-  // Accent-insensitive folding
   const fold = (s) =>
-    (s || "")
-      .toString()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase();
+    (s || "").toString().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
-  // Safety: normalize any bare domains to https (should be mostly handled upstream)
   function normalizeUrl(u) {
     if (!u) return "";
     const s = String(u).trim();
@@ -46,30 +32,23 @@
     return "https://" + s.replace(/^\/+/, "");
   }
 
-  // Clickable phone formatting
   function formatTel(p) {
     if (!p) return "";
     const digits = String(p).replace(/\D/g, "");
     const disp =
       digits.length === 11 && digits.startsWith("1")
-        ? `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+        ? `(${digits.slice(1,4)}) ${digits.slice(4,7)}-${digits.slice(7)}`
         : digits.length === 10
-        ? `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+        ? `(${digits.slice(0,3)}) ${digits.slice(3,6)}-${digits.slice(6)}`
         : p;
     const tel =
-      digits.startsWith("1") && digits.length === 11
-        ? `+${digits}`
-        : digits.length === 10
-        ? `+1${digits}`
-        : digits;
+      digits.startsWith("1") && digits.length === 11 ? `+${digits}` :
+      digits.length === 10 ? `+1${digits}` : digits;
     return `<a href="tel:${tel}">${disp}</a>`;
   }
 
-  // ----- colored markers by type + legend -----
-  const PALETTE = [
-    "#6abf69", "#4aa3df", "#d98bff", "#ffb347", "#ff6666",
-    "#47d1b0", "#e6c84f", "#c97fd1", "#6ec5e9", "#a3d977"
-  ];
+  // ----- colored markers + legend -----
+  const PALETTE = ["#6abf69","#4aa3df","#d98bff","#ffb347","#ff6666","#47d1b0","#e6c84f","#c97fd1","#6ec5e9","#a3d977"];
   const typeColor = new Map();
   function getColorForType(t) {
     const key = (t || "other").toLowerCase();
@@ -81,18 +60,17 @@
   }
 
   const legend = L.control({ position: "topright" });
-  legend.onAdd = function () {
+  legend.onAdd = function() {
     const div = L.DomUtil.create("div", "legend");
     div.innerHTML = `<div><strong>Types</strong></div><div id="legend-rows"></div>`;
     return div;
   };
   legend.addTo(map);
-
   function renderLegend(typesInView) {
     const el = document.getElementById("legend-rows");
     if (!el) return;
     el.innerHTML = "";
-    const list = [...typesInView].sort((a, b) => a.localeCompare(b)).slice(0, 12);
+    const list = [...typesInView].sort((a,b)=>a.localeCompare(b)).slice(0, 12);
     for (const t of list) {
       const row = document.createElement("div");
       row.className = "row";
@@ -107,29 +85,41 @@
     }
   }
 
+  // Cluster with colored bubbles (by majority type in the cluster)
+  const cluster = L.markerClusterGroup({
+    chunkedLoading: true,
+    spiderfyOnMaxZoom: true,
+    disableClusteringAtZoom: 12,
+    maxClusterRadius: 60,
+    iconCreateFunction: (cl) => {
+      const counts = {};
+      cl.getAllChildMarkers().forEach((m) => {
+        const t = (m.options.ftype || "other").toLowerCase();
+        counts[t] = (counts[t] || 0) + 1;
+      });
+      let top = "other", max = 0;
+      for (const [t, n] of Object.entries(counts)) if (n > max) { max = n; top = t; }
+      const color = getColorForType(top);
+      const size = 38; // bubble diameter
+      return L.divIcon({
+        html: `<div class="cluster-bubble" style="--c:${color}; width:${size}px; height:${size}px;"><span>${cl.getChildCount()}</span></div>`,
+        className: "cluster-icon",
+        iconSize: [size, size],
+      });
+    }
+  }).addTo(map);
+
   // ----- data and state -----
   let allRows = [];
   let markers = [];
   let currentFiltered = [];
 
   function buildPopup(d) {
-    const addr = [d.address_1, d.city, d.state, d.postal_code]
-      .filter(Boolean)
-      .join(", ");
+    const addr = [d.address_1, d.city, d.state, d.postal_code].filter(Boolean).join(", ");
     const phone = d.phone ? `<div>📞 ${formatTel(d.phone)}</div>` : "";
-    const web = d.website_url
-      ? `<div>🔗 <a href="${normalizeUrl(d.website_url)}" target="_blank" rel="noopener">Website</a></div>`
-      : "";
+    const web = d.website_url ? `<div>🔗 <a href="${normalizeUrl(d.website_url)}" target="_blank" rel="noopener">Website</a></div>` : "";
     const type = d.brewery_type ? `<div>Type: ${d.brewery_type}</div>` : "";
-    return `
-      <div class="popup">
-        <strong>${d.name || "Brewery"}</strong>
-        ${type}
-        <div>${addr}</div>
-        ${phone}
-        ${web}
-      </div>
-    `;
+    return `<div class="popup"><strong>${d.name || "Brewery"}</strong>${type}<div>${addr}</div>${phone}${web}</div>`;
   }
 
   function clearMarkers() {
@@ -173,7 +163,7 @@
         popupAnchor: [0, -9],
       });
 
-      const m = L.marker([lat, lon], { title: d.name || "", icon });
+      const m = L.marker([lat, lon], { title: d.name || "", icon, ftype: d.brewery_type || "other" });
       m.bindPopup(buildPopup(d));
       markers.push(m);
     }
@@ -225,23 +215,15 @@
 
   // Events
   typeSel.addEventListener("change", applyFilters);
-  countrySel.addEventListener("change", () => {
-    setRegionOptions();
-    applyFilters();
-  });
+  countrySel.addEventListener("change", () => { setRegionOptions(); applyFilters(); });
   regionSel.addEventListener("change", applyFilters);
   searchBox.addEventListener("input", debounce(applyFilters, 120));
   resetBtn.addEventListener("click", () => {
-    typeSel.value = "";
-    countrySel.value = "";
-    setRegionOptions();
-    regionSel.value = "";
-    searchBox.value = "";
-    applyFilters();
-    map.setView([45.3, -93.3], 4);
+    typeSel.value = ""; countrySel.value = ""; setRegionOptions(); regionSel.value = ""; searchBox.value = "";
+    applyFilters(); map.setView([45.3, -93.3], 4);
   });
 
-  // Load CSV (accepts 14 or 15 columns)
+  // Load CSV
   Papa.parse(DATA_URL, {
     header: true,
     download: true,
@@ -249,83 +231,46 @@
     dynamicTyping: { latitude: true, longitude: true },
     complete: (results) => {
       const hasSource = results.meta?.fields?.includes("source");
-
       allRows = results.data.map((row) => ({
-        id: row.id ?? "",
-        name: row.name ?? "",
-        brewery_type: row.brewery_type ?? "",
-        address_1: row.address_1 ?? "",
-        city: row.city ?? "",
-        state: row.state ?? "",
-        postal_code: row.postal_code ?? "",
-        country: row.country ?? "",
-        latitude: row.latitude,
-        longitude: row.longitude,
-        phone: row.phone ?? "",
-        website_url: row.website_url ?? "",
-        // handle both schemas
+        id: row.id ?? "", name: row.name ?? "", brewery_type: row.brewery_type ?? "",
+        address_1: row.address_1 ?? "", city: row.city ?? "", state: row.state ?? "",
+        postal_code: row.postal_code ?? "", country: row.country ?? "",
+        latitude: row.latitude, longitude: row.longitude,
+        phone: row.phone ?? "", website_url: row.website_url ?? "",
         source: hasSource ? row.source ?? "" : "",
-        source_state: row.source_state ?? "",
-        source_state_code: row.source_state_code ?? "",
+        source_state: row.source_state ?? "", source_state_code: row.source_state_code ?? "",
       }));
-
-      populateFilters();
-      applyFilters();
-      loadDataVersion(); // show data version badge after map loads
+      populateFilters(); applyFilters(); loadDataVersion();
     },
-    error: (err) => {
-      console.error("CSV load error:", err);
-      alert("Failed to load brewery data. Please check the data/na_breweries_combined.csv file.");
-      loadDataVersion(); // still try to show version
-    },
+    error: (err) => { console.error("CSV load error:", err); alert("Failed to load brewery data. Please check the data/na_breweries_combined.csv file."); loadDataVersion(); },
   });
 
-  // ---- Data version badge (GitHub API) ----
+  // Data version badge
   async function loadDataVersion() {
     if (!versionEl) return;
     try {
-      const api =
-        "https://api.github.com/repos/piersondarren/brewmap/commits?path=data/na_breweries_combined.csv&per_page=1";
+      const api = "https://api.github.com/repos/piersondarren/brewmap/commits?path=data/na_breweries_combined.csv&per_page=1";
       const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
       if (!res.ok) throw new Error("HTTP " + res.status);
       const data = await res.json();
       const commit = Array.isArray(data) && data[0] ? data[0] : null;
       if (!commit) throw new Error("No commit found");
-
       const iso = commit.commit?.committer?.date || commit.commit?.author?.date;
       const sha = commit.sha?.slice(0, 7) || "";
-      const htmlUrl =
-        commit.html_url ||
-        "https://github.com/piersondarren/brewmap/commits/main/data/na_breweries_combined.csv";
-
+      const htmlUrl = commit.html_url || "https://github.com/piersondarren/brewmap/commits/main/data/na_breweries_combined.csv";
       const dt = new Date(iso);
-      const y = dt.getFullYear();
-      const m = String(dt.getMonth() + 1).padStart(2, "0");
-      const d = String(dt.getDate()).padStart(2, "0");
-      const when = `${y}-${m}-${d}`;
+      const when = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
       const rel = relativeTimeFromNow(dt);
-
       versionEl.innerHTML = `Data updated: <a href="${htmlUrl}" target="_blank" rel="noopener">${when}</a> (${rel}) · ${sha}`;
-    } catch (e) {
-      console.warn("Version fetch failed:", e);
+    } catch {
       versionEl.textContent = "Data updated: unknown";
     }
   }
 
   function relativeTimeFromNow(date) {
     const secs = Math.floor((Date.now() - date.getTime()) / 1000);
-    const units = [
-      ["year", 365 * 24 * 3600],
-      ["month", 30 * 24 * 3600],
-      ["day", 24 * 3600],
-      ["hour", 3600],
-      ["minute", 60],
-      ["second", 1],
-    ];
-    for (const [name, s] of units) {
-      const v = Math.floor(secs / s);
-      if (v >= 1) return `${v} ${name}${v > 1 ? "s" : ""} ago`;
-    }
+    const units = [["year",31536000],["month",2592000],["day",86400],["hour",3600],["minute",60],["second",1]];
+    for (const [name, s] of units) { const v = Math.floor(secs / s); if (v >= 1) return `${v} ${name}${v > 1 ? "s" : ""} ago`; }
     return "just now";
   }
 })();
