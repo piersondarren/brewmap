@@ -136,7 +136,7 @@ select, input[type="search"] {
   display: inline-block;
 }
 
-/* Legend */
+/* Legend for types */
 .legend {
   background: rgba(16,19,26,0.92);
   color: var(--text);
@@ -148,6 +148,7 @@ select, input[type="search"] {
 }
 .legend .row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
 .legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5); }
+
 
 .search-label { min-width: 240px; }
 @media (max-width: 840px) {
