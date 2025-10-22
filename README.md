@@ -1,6 +1,6 @@
 # Brewery Map on GitHub Pages
 
-Fast, single page map of breweries across the United States and Canada. No Tableau. Pure HTML, CSS, and JavaScript.
+Fast, single page map of breweries across the United States and Canada.
 
 Live URL pattern: `https://piersondarren.github.io/brewmap/`
 
