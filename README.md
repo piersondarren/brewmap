@@ -9,7 +9,7 @@ Live URL pattern: `https://piersondarren.github.io/brewmap/`
 - [Leaflet.markercluster](https://github.com/Leaflet/Leaflet.markercluster) for performance
 - [Papa Parse](https://www.papaparse.com/) for client side CSV loading
 - Vanilla JavaScript, no build step
-- GitHub Pages for free hosting
+
 
 
 ## About
