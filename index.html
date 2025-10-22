@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brewery Map — U.S. & Canada</title>
+  <meta name="description" content="Fast interactive map of breweries across the United States and Canada. Built with Leaflet and client side CSV loading." />
+
+  <!-- Social (optional placeholder) -->
+  <meta property="og:title" content="Brewery Map — U.S. & Canada" />
+  <meta property="og:description" content="Fast interactive map of breweries across the United States and Canada." />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://piersondarren.github.io/brewmap/" />
+  <meta property="og:image" content="https://piersondarren.github.io/brewmap/social.png" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- Analytics hook (optional, add your snippet later) -->
+  <!-- Google Analytics or Plausible can be inserted here -->
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Brewery Map</div>
+    <div class="controls">
+      <label>
+        Type
+        <select id="filter-type">
+          <option value="">All types</option>
+        </select>
+      </label>
+      <label>
+        Country
+        <select id="filter-country">
+          <option value="">United States + Canada</option>
+          <option value="United States">United States</option>
+          <option value="Canada">Canada</option>
+        </select>
+      </label>
+      <label>
+        State / Province
+        <select id="filter-region">
+          <option value="">All</option>
+        </select>
+      </label>
+      <label class="search-label">
+        Search
+        <input id="search-box" type="search" placeholder="Name, city, or postal…" />
+      </label>
+      <button id="reset-btn" class="reset">Reset</button>
+      <span id="result-count" class="count">0</span>
+    </div>
+  </header>
+
+  <main id="map"></main>
+
+  <footer class="footer">
+    <p>Built by <a href="https://github.com/piersondarren/brewmap" target="_blank" rel="noopener">Darren Pierson</a>. Data from internal CSV export. <a href="https://github.com/piersondarren/brewmap">View repo</a>.</p>
+  </footer>
+
+  <!-- Libraries -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <!-- App -->
+  <script src="./app.js"></script>
+</body>
+</html>
