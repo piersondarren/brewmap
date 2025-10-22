@@ -29,105 +29,96 @@
     maxClusterRadius: 60,
   }).addTo(map);
 
-  // Data
+  // ----- utils -----
+  // Accent-insensitive folding
+  const fold = (s) =>
+    (s || "")
+      .toString()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase();
+
+  // Safety: normalize any bare domains to https (should be mostly handled upstream)
+  function normalizeUrl(u) {
+    if (!u) return "";
+    const s = String(u).trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    return "https://" + s.replace(/^\/+/, "");
+  }
+
+  // Clickable phone formatting
+  function formatTel(p) {
+    if (!p) return "";
+    const digits = String(p).replace(/\D/g, "");
+    const disp =
+      digits.length === 11 && digits.startsWith("1")
+        ? `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`
+        : digits.length === 10
+        ? `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`
+        : p;
+    const tel =
+      digits.startsWith("1") && digits.length === 11
+        ? `+${digits}`
+        : digits.length === 10
+        ? `+1${digits}`
+        : digits;
+    return `<a href="tel:${tel}">${disp}</a>`;
+  }
+
+  // ----- colored markers by type + legend -----
+  const PALETTE = [
+    "#6abf69", "#4aa3df", "#d98bff", "#ffb347", "#ff6666",
+    "#47d1b0", "#e6c84f", "#c97fd1", "#6ec5e9", "#a3d977"
+  ];
+  const typeColor = new Map();
+  function getColorForType(t) {
+    const key = (t || "other").toLowerCase();
+    if (!typeColor.has(key)) {
+      const idx = typeColor.size % PALETTE.length;
+      typeColor.set(key, PALETTE[idx]);
+    }
+    return typeColor.get(key);
+  }
+
+  const legend = L.control({ position: "topright" });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend");
+    div.innerHTML = `<div><strong>Types</strong></div><div id="legend-rows"></div>`;
+    return div;
+  };
+  legend.addTo(map);
+
+  function renderLegend(typesInView) {
+    const el = document.getElementById("legend-rows");
+    if (!el) return;
+    el.innerHTML = "";
+    const list = [...typesInView].sort((a, b) => a.localeCompare(b)).slice(0, 12);
+    for (const t of list) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const sw = document.createElement("span");
+      sw.className = "swatch";
+      sw.style.background = getColorForType(t);
+      const label = document.createElement("span");
+      label.textContent = t || "other";
+      row.appendChild(sw);
+      row.appendChild(label);
+      el.appendChild(row);
+    }
+  }
+
+  // ----- data and state -----
   let allRows = [];
   let markers = [];
   let currentFiltered = [];
-
-  // Utility: accent-insensitive folding
-// Older Chrome/Edge/Safari don't support \p{Diacritic}. Use the combining marks range instead.
-  
-const fold = (s) =>
-  (s || "")
-    .toString()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // strip combining diacritics
-    .toLowerCase();
-
-  // --- add near the top, after constants ---
-
-// palette to assign distinct, soft colors per type (reused if > palette size)
-const PALETTE = [
-  "#6abf69","#4aa3df","#d98bff","#ffb347","#ff6666",
-  "#47d1b0","#e6c84f","#c97fd1","#6ec5e9","#a3d977"
-];
-const typeColor = new Map();
-function getColorForType(t) {
-  const key = (t || "other").toLowerCase();
-  if (!typeColor.has(key)) {
-    const idx = typeColor.size % PALETTE.length;
-    typeColor.set(key, PALETTE[idx]);
-  }
-  return typeColor.get(key);
-}
-
-// lightweight legend control
-const legend = L.control({ position: "topright" });
-legend.onAdd = function() {
-  const div = L.DomUtil.create("div", "legend");
-  div.innerHTML = `<div><strong>Types</strong></div><div id="legend-rows"></div>`;
-  return div;
-};
-legend.addTo(map);
-function renderLegend(typesInView) {
-  const el = document.getElementById("legend-rows");
-  if (!el) return;
-  el.innerHTML = "";
-  // cap legend size to avoid huge lists
-  const list = [...typesInView].sort((a,b)=>a.localeCompare(b)).slice(0, 12);
-  for (const t of list) {
-    const row = document.createElement("div");
-    row.className = "row";
-    const sw = document.createElement("span");
-    sw.className = "swatch";
-    sw.style.background = getColorForType(t);
-    const label = document.createElement("span");
-    label.textContent = t || "other";
-    row.appendChild(sw);
-    row.appendChild(label);
-    el.appendChild(row);
-  }
-}
-
-// --- in applyFilters(), when creating each marker, use a colored dot icon ---
-
-clearMarkers();
-const typesInView = new Set();
-
-for (const d of currentFiltered) {
-  const lat = parseFloat(d.latitude);
-  const lon = parseFloat(d.longitude);
-  if (!isFinite(lat) || !isFinite(lon)) continue;
-
-  const color = getColorForType(d.brewery_type || "other");
-  typesInView.add(d.brewery_type || "other");
-
-  const icon = L.divIcon({
-    html: `<span class="marker-dot" style="--dot:${color}"></span>`,
-    className: "",           // keep it lean
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -9],
-  });
-
-  const m = L.marker([lat, lon], { title: d.name || "", icon });
-  m.bindPopup(buildPopup(d));
-  markers.push(m);
-}
-cluster.addLayers(markers);
-
-// result count and legend update
-countEl.textContent = currentFiltered.length.toLocaleString();
-renderLegend(typesInView);
-
 
   function buildPopup(d) {
     const addr = [d.address_1, d.city, d.state, d.postal_code]
       .filter(Boolean)
       .join(", ");
-    const phone = d.phone ? `<div>📞 ${d.phone}</div>` : "";
+    const phone = d.phone ? `<div>📞 ${formatTel(d.phone)}</div>` : "";
     const web = d.website_url
-      ? `<div>🔗 <a href="${d.website_url}" target="_blank" rel="noopener">Website</a></div>`
+      ? `<div>🔗 <a href="${normalizeUrl(d.website_url)}" target="_blank" rel="noopener">Website</a></div>`
       : "";
     const type = d.brewery_type ? `<div>Type: ${d.brewery_type}</div>` : "";
     return `
@@ -156,7 +147,6 @@ renderLegend(typesInView);
       if (t && d.brewery_type !== t) return false;
       if (c && d.country !== c) return false;
       if (r && d.state !== r) return false;
-
       if (q) {
         const hay = [d.name, d.city, d.postal_code].map(fold).join(" ");
         if (!hay.includes(q)) return false;
@@ -165,16 +155,32 @@ renderLegend(typesInView);
     });
 
     clearMarkers();
+    const typesInView = new Set();
+
     for (const d of currentFiltered) {
       const lat = parseFloat(d.latitude);
       const lon = parseFloat(d.longitude);
       if (!isFinite(lat) || !isFinite(lon)) continue;
-      const m = L.marker([lat, lon], { title: d.name || "" });
+
+      const color = getColorForType(d.brewery_type || "other");
+      typesInView.add(d.brewery_type || "other");
+
+      const icon = L.divIcon({
+        html: `<span class="marker-dot" style="--dot:${color}"></span>`,
+        className: "",
+        iconSize: [18, 18],
+        iconAnchor: [9, 9],
+        popupAnchor: [0, -9],
+      });
+
+      const m = L.marker([lat, lon], { title: d.name || "", icon });
       m.bindPopup(buildPopup(d));
       markers.push(m);
     }
+
     cluster.addLayers(markers);
     countEl.textContent = currentFiltered.length.toLocaleString();
+    renderLegend(typesInView);
   }
 
   function setRegionOptions() {
@@ -278,7 +284,6 @@ renderLegend(typesInView);
   async function loadDataVersion() {
     if (!versionEl) return;
     try {
-      // owner and repo are fixed here. Adjust if you ever fork.
       const api =
         "https://api.github.com/repos/piersondarren/brewmap/commits?path=data/na_breweries_combined.csv&per_page=1";
       const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
@@ -289,7 +294,9 @@ renderLegend(typesInView);
 
       const iso = commit.commit?.committer?.date || commit.commit?.author?.date;
       const sha = commit.sha?.slice(0, 7) || "";
-      const htmlUrl = commit.html_url || "https://github.com/piersondarren/brewmap/commits/main/data/na_breweries_combined.csv";
+      const htmlUrl =
+        commit.html_url ||
+        "https://github.com/piersondarren/brewmap/commits/main/data/na_breweries_combined.csv";
 
       const dt = new Date(iso);
       const y = dt.getFullYear();
