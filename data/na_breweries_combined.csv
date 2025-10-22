@@ -1,0 +1,6 @@
+id,name,brewery_type,address_1,city,state,postal_code,country,latitude,longitude,phone,website_url,source,source_state,source_state_code
+us-fl-001,Orange Grove Brewing,micro,123 Citrus Ave,Orlando,Florida,32801,United States,28.5383,-81.3792,4075550101,https://orangegrove.example.com,internal,Florida,FL
+us-co-002,High Peaks Brewery,regional,456 Mountain Rd,Boulder,Colorado,80302,United States,40.01499,-105.27055,,,,"",Colorado,CO
+ca-bc-003,Pacific Hops,brewpub,789 Harbor St,Vancouver,British Columbia,V6B 1A1,Canada,49.2827,-123.1207,6045550199,https://pacifichops.example.ca,internal,British Columbia,BC
+ca-qc-004,Brasserie du Fleuve,micro,101 Rue Sainte-Catherine,Montréal,Quebec,H3B 1E9,Canada,45.5017,-73.5673,,https://brasseriefleuve.example.ca,internal,Quebec,QC
+us-ny-005,Empire Ale Works,micro,12 Liberty St,New York,New York,10006,United States,40.7135,-74.0066,2125550198,,,"",New York,NY
