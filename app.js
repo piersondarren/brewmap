@@ -1,11 +1,9 @@
 // Brewery Map — U.S. & Canada
 // Vanilla JS + Leaflet + Papa Parse + MarkerCluster
-// Assumptions:
-// - CSV headers: id,name,brewery_type,address_1,city,state,postal_code,country,latitude,longitude,phone,website_url,source,source_state,source_state_code
-// - data file at ./data/na_breweries_combined.csv
-// - lat/lon numeric, phone and website may be blank
+// Accepts either 15-col schema (…website_url,source,source_state,source_state_code)
+// or 14-col schema without `source` (…website_url,source_state,source_state_code)
 
-(function() {
+(function () {
   const DATA_URL = "./data/na_breweries_combined.csv";
 
   // DOM
@@ -15,18 +13,20 @@
   const searchBox = document.getElementById("search-box");
   const resetBtn = document.getElementById("reset-btn");
   const countEl = document.getElementById("result-count");
+  const versionEl = document.getElementById("data-version");
 
   // Map
   const map = L.map("map", { zoomControl: true }).setView([45.3, -93.3], 4);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors'
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> contributors',
   }).addTo(map);
 
   const cluster = L.markerClusterGroup({
     chunkedLoading: true,
     spiderfyOnMaxZoom: true,
     disableClusteringAtZoom: 12,
-    maxClusterRadius: 60
+    maxClusterRadius: 60,
   }).addTo(map);
 
   // Data
@@ -34,16 +34,18 @@
   let markers = [];
   let currentFiltered = [];
 
-  // Utility: accent-insensitive compare
-  const fold = (s) => (s || "").toString()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+  // Utility: accent-insensitive folding
+  const fold = (s) =>
+    (s || "").toString().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
   function buildPopup(d) {
-    const addr = [d.address_1, d.city, d.state, d.postal_code].filter(Boolean).join(", ");
+    const addr = [d.address_1, d.city, d.state, d.postal_code]
+      .filter(Boolean)
+      .join(", ");
     const phone = d.phone ? `<div>📞 ${d.phone}</div>` : "";
-    const web = d.website_url ? `<div>🔗 <a href="${d.website_url}" target="_blank" rel="noopener">Website</a></div>` : "";
+    const web = d.website_url
+      ? `<div>🔗 <a href="${d.website_url}" target="_blank" rel="noopener">Website</a></div>`
+      : "";
     const type = d.brewery_type ? `<div>Type: ${d.brewery_type}</div>` : "";
     return `
       <div class="popup">
@@ -67,7 +69,7 @@
     const r = regionSel.value;
     const q = fold(searchBox.value);
 
-    currentFiltered = allRows.filter(d => {
+    currentFiltered = allRows.filter((d) => {
       if (t && d.brewery_type !== t) return false;
       if (c && d.country !== c) return false;
       if (r && d.state !== r) return false;
@@ -79,7 +81,6 @@
       return true;
     });
 
-    // update markers
     clearMarkers();
     for (const d of currentFiltered) {
       const lat = parseFloat(d.latitude);
@@ -90,28 +91,7 @@
       markers.push(m);
     }
     cluster.addLayers(markers);
-
-    // result count
     countEl.textContent = currentFiltered.length.toLocaleString();
-  }
-
-  function populateFilters() {
-    // types
-    const typeSet = new Set();
-    const regionSet = new Set();
-    for (const d of allRows) {
-      if (d.brewery_type) typeSet.add(d.brewery_type);
-      if (d.state) regionSet.add(d.state);
-    }
-    [...typeSet].sort((a,b) => a.localeCompare(b)).forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v;
-      opt.textContent = v;
-      typeSel.appendChild(opt);
-    });
-
-    // regions depend on country selection when changed, but we seed with all
-    setRegionOptions();
   }
 
   function setRegionOptions() {
@@ -121,10 +101,9 @@
       if (c && d.country !== c) continue;
       if (d.state) regions.add(d.state);
     }
-    const sorted = [...regions].sort((a,b) => a.localeCompare(b));
-    // reset
+    const sorted = [...regions].sort((a, b) => a.localeCompare(b));
     regionSel.innerHTML = "<option value=''>All</option>";
-    sorted.forEach(v => {
+    sorted.forEach((v) => {
       const opt = document.createElement("option");
       opt.value = v;
       opt.textContent = v;
@@ -132,9 +111,35 @@
     });
   }
 
+  function populateFilters() {
+    const typeSet = new Set();
+    for (const d of allRows) {
+      if (d.brewery_type) typeSet.add(d.brewery_type);
+    }
+    [...typeSet].sort((a, b) => a.localeCompare(b)).forEach((v) => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      typeSel.appendChild(opt);
+    });
+    setRegionOptions();
+  }
+
+  // Debounce helper
+  function debounce(fn, ms) {
+    let t;
+    return (...args) => {
+      clearTimeout(t);
+      t = setTimeout(() => fn.apply(null, args), ms);
+    };
+  }
+
   // Events
   typeSel.addEventListener("change", applyFilters);
-  countrySel.addEventListener("change", () => { setRegionOptions(); applyFilters(); });
+  countrySel.addEventListener("change", () => {
+    setRegionOptions();
+    applyFilters();
+  });
   regionSel.addEventListener("change", applyFilters);
   searchBox.addEventListener("input", debounce(applyFilters, 120));
   resetBtn.addEventListener("click", () => {
@@ -144,30 +149,19 @@
     regionSel.value = "";
     searchBox.value = "";
     applyFilters();
-    // center back out
     map.setView([45.3, -93.3], 4);
   });
 
-  function debounce(fn, ms) {
-    let t;
-    return (...args) => {
-      clearTimeout(t);
-      t = setTimeout(() => fn.apply(null, args), ms);
-    };
-  }
-
-  // Load CSV
+  // Load CSV (accepts 14 or 15 columns)
   Papa.parse(DATA_URL, {
     header: true,
     download: true,
     skipEmptyLines: true,
-    dynamicTyping: {
-      latitude: true,
-      longitude: true
-    },
+    dynamicTyping: { latitude: true, longitude: true },
     complete: (results) => {
-      // sanitize rows to expected schema keys
-      allRows = results.data.map(row => ({
+      const hasSource = results.meta?.fields?.includes("source");
+
+      allRows = results.data.map((row) => ({
         id: row.id ?? "",
         name: row.name ?? "",
         brewery_type: row.brewery_type ?? "",
@@ -180,17 +174,68 @@
         longitude: row.longitude,
         phone: row.phone ?? "",
         website_url: row.website_url ?? "",
-        source: row.source ?? "",
+        // handle both schemas
+        source: hasSource ? row.source ?? "" : "",
         source_state: row.source_state ?? "",
-        source_state_code: row.source_state_code ?? ""
+        source_state_code: row.source_state_code ?? "",
       }));
 
       populateFilters();
       applyFilters();
+      loadDataVersion(); // show data version badge after map loads
     },
     error: (err) => {
       console.error("CSV load error:", err);
       alert("Failed to load brewery data. Please check the data/na_breweries_combined.csv file.");
-    }
+      loadDataVersion(); // still try to show version
+    },
   });
+
+  // ---- Data version badge (GitHub API) ----
+  async function loadDataVersion() {
+    if (!versionEl) return;
+    try {
+      // owner and repo are fixed here. Adjust if you ever fork.
+      const api =
+        "https://api.github.com/repos/piersondarren/brewmap/commits?path=data/na_breweries_combined.csv&per_page=1";
+      const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const commit = Array.isArray(data) && data[0] ? data[0] : null;
+      if (!commit) throw new Error("No commit found");
+
+      const iso = commit.commit?.committer?.date || commit.commit?.author?.date;
+      const sha = commit.sha?.slice(0, 7) || "";
+      const htmlUrl = commit.html_url || "https://github.com/piersondarren/brewmap/commits/main/data/na_breweries_combined.csv";
+
+      const dt = new Date(iso);
+      const y = dt.getFullYear();
+      const m = String(dt.getMonth() + 1).padStart(2, "0");
+      const d = String(dt.getDate()).padStart(2, "0");
+      const when = `${y}-${m}-${d}`;
+      const rel = relativeTimeFromNow(dt);
+
+      versionEl.innerHTML = `Data updated: <a href="${htmlUrl}" target="_blank" rel="noopener">${when}</a> (${rel}) · ${sha}`;
+    } catch (e) {
+      console.warn("Version fetch failed:", e);
+      versionEl.textContent = "Data updated: unknown";
+    }
+  }
+
+  function relativeTimeFromNow(date) {
+    const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+    const units = [
+      ["year", 365 * 24 * 3600],
+      ["month", 30 * 24 * 3600],
+      ["day", 24 * 3600],
+      ["hour", 3600],
+      ["minute", 60],
+      ["second", 1],
+    ];
+    for (const [name, s] of units) {
+      const v = Math.floor(secs / s);
+      if (v >= 1) return `${v} ${name}${v > 1 ? "s" : ""} ago`;
+    }
+    return "just now";
+  }
 })();
