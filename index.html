@@ -67,7 +67,24 @@
   </footer>
 
 
+    <!-- Libraries -->
+  <!-- Leaflet JS (primary) -->
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Fallback if primary fails -->
+  <script>
+    if (!window.L) {
+      document.write('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>');
+    }
+  </script>
+
+  <!-- MarkerCluster -->
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Papa Parse -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
   <!-- App -->
   <script src="./app.js"></script>
 </body>
 </html>
+
