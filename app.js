@@ -44,6 +44,82 @@ const fold = (s) =>
     .replace(/[\u0300-\u036f]/g, "") // strip combining diacritics
     .toLowerCase();
 
+  // --- add near the top, after constants ---
+
+// palette to assign distinct, soft colors per type (reused if > palette size)
+const PALETTE = [
+  "#6abf69","#4aa3df","#d98bff","#ffb347","#ff6666",
+  "#47d1b0","#e6c84f","#c97fd1","#6ec5e9","#a3d977"
+];
+const typeColor = new Map();
+function getColorForType(t) {
+  const key = (t || "other").toLowerCase();
+  if (!typeColor.has(key)) {
+    const idx = typeColor.size % PALETTE.length;
+    typeColor.set(key, PALETTE[idx]);
+  }
+  return typeColor.get(key);
+}
+
+// lightweight legend control
+const legend = L.control({ position: "topright" });
+legend.onAdd = function() {
+  const div = L.DomUtil.create("div", "legend");
+  div.innerHTML = `<div><strong>Types</strong></div><div id="legend-rows"></div>`;
+  return div;
+};
+legend.addTo(map);
+function renderLegend(typesInView) {
+  const el = document.getElementById("legend-rows");
+  if (!el) return;
+  el.innerHTML = "";
+  // cap legend size to avoid huge lists
+  const list = [...typesInView].sort((a,b)=>a.localeCompare(b)).slice(0, 12);
+  for (const t of list) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const sw = document.createElement("span");
+    sw.className = "swatch";
+    sw.style.background = getColorForType(t);
+    const label = document.createElement("span");
+    label.textContent = t || "other";
+    row.appendChild(sw);
+    row.appendChild(label);
+    el.appendChild(row);
+  }
+}
+
+// --- in applyFilters(), when creating each marker, use a colored dot icon ---
+
+clearMarkers();
+const typesInView = new Set();
+
+for (const d of currentFiltered) {
+  const lat = parseFloat(d.latitude);
+  const lon = parseFloat(d.longitude);
+  if (!isFinite(lat) || !isFinite(lon)) continue;
+
+  const color = getColorForType(d.brewery_type || "other");
+  typesInView.add(d.brewery_type || "other");
+
+  const icon = L.divIcon({
+    html: `<span class="marker-dot" style="--dot:${color}"></span>`,
+    className: "",           // keep it lean
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -9],
+  });
+
+  const m = L.marker([lat, lon], { title: d.name || "", icon });
+  m.bindPopup(buildPopup(d));
+  markers.push(m);
+}
+cluster.addLayers(markers);
+
+// result count and legend update
+countEl.textContent = currentFiltered.length.toLocaleString();
+renderLegend(typesInView);
+
 
   function buildPopup(d) {
     const addr = [d.address_1, d.city, d.state, d.postal_code]
