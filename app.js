@@ -35,8 +35,15 @@
   let currentFiltered = [];
 
   // Utility: accent-insensitive folding
-  const fold = (s) =>
-    (s || "").toString().normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+// Older Chrome/Edge/Safari don't support \p{Diacritic}. Use the combining marks range instead.
+  
+const fold = (s) =>
+  (s || "")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip combining diacritics
+    .toLowerCase();
+
 
   function buildPopup(d) {
     const addr = [d.address_1, d.city, d.state, d.postal_code]
