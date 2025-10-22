@@ -125,6 +125,30 @@ select, input[type="search"] {
   color: var(--text);
 }
 
+/* Colored marker dots */
+.marker-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--dot, #ccc);
+  border: 2px solid rgba(0,0,0,0.6);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.15), 0 1px 6px rgba(0,0,0,0.6);
+  display: inline-block;
+}
+
+/* Legend */
+.legend {
+  background: rgba(16,19,26,0.92);
+  color: var(--text);
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  line-height: 1.3;
+  font-size: 12px;
+}
+.legend .row { display: flex; align-items: center; gap: 6px; margin: 4px 0; }
+.legend .swatch { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.5); }
+
 .search-label { min-width: 240px; }
 @media (max-width: 840px) {
   .search-label { min-width: 160px; }
