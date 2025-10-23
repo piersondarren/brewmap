@@ -47,43 +47,72 @@
     return `<a href="tel:${tel}">${disp}</a>`;
   }
 
-  // ----- colored markers + legend -----
-  const PALETTE = ["#6abf69","#4aa3df","#d98bff","#ffb347","#ff6666","#47d1b0","#e6c84f","#c97fd1","#6ec5e9","#a3d977"];
-  const typeColor = new Map();
-  function getColorForType(t) {
-    const key = (t || "other").toLowerCase();
-    if (!typeColor.has(key)) {
-      const idx = typeColor.size % PALETTE.length;
-      typeColor.set(key, PALETTE[idx]);
-    }
-    return typeColor.get(key);
-  }
+// --- Brewery type order and color flow ---
+const TYPE_ORDER = [
+  "brewpub", "taproom", "micro", "nano", "meadery", "cidery",
+  "location", "bar", "proprietor", "regional", "contract",
+  "large", "planning", "closed", "unknown"
+];
 
-  const legend = L.control({ position: "topright" });
-  legend.onAdd = function() {
-    const div = L.DomUtil.create("div", "legend");
-    div.innerHTML = `<div><strong>Types</strong></div><div id="legend-rows"></div>`;
+const TYPE_COLORS = {
+  brewpub: "#ff4d4d",
+  taproom: "#ff7043",
+  micro: "#ffa726",
+  nano: "#ffcc80",
+  meadery: "#ffd54f",
+  cidery: "#ffeb3b",
+  location: "#cddc39",
+  bar: "#66bb6a",
+  proprietor: "#26a69a",
+  regional: "#29b6f6",
+  contract: "#1e88e5",
+  large: "#1976d2",
+  planning: "#546e7a",
+  closed: "#455a64",
+  unknown: "#000000"
+};
+
+// Style for each marker
+function markerStyleForType(type) {
+  const color = TYPE_COLORS[type] || TYPE_COLORS.unknown;
+  return {
+    radius: 6,
+    weight: 1,
+    color: "#111",
+    fillColor: color,
+    fillOpacity: 0.9
+  };
+}
+
+// Build the legend
+function buildLegend(map) {
+  const legend = L.control({ position: "topleft" });
+  legend.onAdd = function () {
+    const div = L.DomUtil.create("div", "legend legend--types");
+    div.innerHTML = `<div class="legend-title">Types</div>`;
+    const list = document.createElement("ul");
+    list.className = "legend-list";
+
+    TYPE_ORDER.forEach(t => {
+      const color = TYPE_COLORS[t] || TYPE_COLORS.unknown;
+      const item = document.createElement("li");
+      item.className = "legend-item";
+      item.innerHTML = `
+        <span class="legend-swatch" style="background:${color}"></span>
+        <span class="legend-label">${t}</span>
+      `;
+      list.appendChild(item);
+    });
+
+    div.appendChild(list);
     return div;
   };
   legend.addTo(map);
-  function renderLegend(typesInView) {
-    const el = document.getElementById("legend-rows");
-    if (!el) return;
-    el.innerHTML = "";
-    const list = [...typesInView].sort((a,b)=>a.localeCompare(b)).slice(0, 12);
-    for (const t of list) {
-      const row = document.createElement("div");
-      row.className = "row";
-      const sw = document.createElement("span");
-      sw.className = "swatch";
-      sw.style.background = getColorForType(t);
-      const label = document.createElement("span");
-      label.textContent = t || "other";
-      row.appendChild(sw);
-      row.appendChild(label);
-      el.appendChild(row);
-    }
-  }
+}
+
+// Call buildLegend(map) after your map is created
+buildLegend(map);
+
 
   // Cluster with colored bubbles (by majority type in the cluster)
   const cluster = L.markerClusterGroup({
