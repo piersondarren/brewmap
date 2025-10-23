@@ -80,7 +80,7 @@
 
   // Build the legend once
   function buildLegend(map) {
-    const legend = L.control({ position: "right" });
+    const legend = L.control({ position: "topright" });
     legend.onAdd = function () {
       const div = L.DomUtil.create("div", "legend legend--types");
       div.innerHTML = `<div class="legend-title">Types</div>`;
